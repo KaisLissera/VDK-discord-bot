@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 import yt_dlp
 
+import Settings
+
 ydl_opts = {
     'format': 'bestaudio/best',
     'postprocessors': [{
@@ -68,4 +70,4 @@ async def play(ctx, url):
 async def ping(ctx):
     await ctx.send(bot.latency)
 
-bot.run('token')
+bot.run(Settings.DISCORD_API_KEY)
