@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands
 import yt_dlp
+import asyncio
+import os
 
 import Settings
 
@@ -65,6 +67,11 @@ async def play(ctx, url):
     await ctx.send("Now playing " + title)
 
     vc.play(discord.FFmpegPCMAudio(executable = "ffmpeg.exe", source = file_path))
+
+    while vc.is_playing():
+        await asyncio.sleep(1)
+    await vc.disconnect()
+    os.remove(file_path)
 
 @bot.command(name = 'ping')
 async def ping(ctx):
