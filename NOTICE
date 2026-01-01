@@ -1,0 +1,10 @@
+VDK Discord music bot
+Copyright 2026 Konstantin Krasninskiy
+
+This product includes software developed by Konstantin Krasninskiy
+
+Third-party components:
+
+discord.py (v2.6.4)
+Copyright 2015-present Rapptz
+License: MIT
