@@ -49,17 +49,42 @@ async def leave(ctx:commands.Context):
         await ctx.send("Not connected to voice channel")
 
 # Wait list
-url_list = []
+wait_list:list[dict] = []
 
 # Play callback
 def play_final(delete_file:str,voice_client:discord.VoiceClient):
-    os.remove(delete_file)
+    # Disconnect from voice channel async
     async def disconnect(voice_client:discord.VoiceClient):
         await voice_client.disconnect()
-    asyncio.run_coroutine_threadsafe(
-        disconnect(voice_client),
-        voice_client.loop
-    )
+    # Play audio in voice channel async
+    async def play(ctx:commands.Context,voice_client:discord.VoiceClient,file:str,title:str):
+        await ctx.send(f"Now playing {title} in {voice_client.channel.name}")
+        voice_client.play(
+        discord.FFmpegOpusAudio(source = file, executable = "ffmpeg"),
+        after=lambda e:play_final(file,voice_client)
+        )
+    #Delete old file
+    os.remove(delete_file)
+    # Start playing next audio
+    list_is_empty = True
+    for item in wait_list:
+        ctx:commands.Context = item.get("ctx")
+        title:str = item.get("title")
+        file:str = item.get("file")
+        if ctx.message.guild.voice_client == voice_client:
+            wait_list.remove(item)
+            list_is_empty = False
+            asyncio.run_coroutine_threadsafe(
+                play(ctx,voice_client,file,title),
+                voice_client.loop
+            )
+            break
+    # Disconnect is queue is empty
+    if list_is_empty:
+        asyncio.run_coroutine_threadsafe(
+            disconnect(voice_client),
+            voice_client.loop
+        )
 
 # Download and start playing audio in voice channel
 @bot.command(name = 'play')
@@ -76,7 +101,7 @@ async def play(ctx:commands.Context,url:str):
     voice_client:discord.VoiceClient = ctx.message.guild.voice_client
     if voice_client == None:
         voice_client = await ctx.author.voice.channel.connect()
-    elif voice_client.channel ==  ctx.author.voice.channel():
+    elif voice_client.channel ==  ctx.author.voice.channel:
         add2wait = True
     else:
         await ctx.send(f"Currently playnd in another voice channel")
@@ -112,12 +137,37 @@ async def play(ctx:commands.Context,url:str):
             lambda:ydl.download([url])
         )
 
+    #Add audio to wait list
+    if add2wait:
+        await ctx.send(f"{title} added to queue")
+        wait_list.append({"ctx":ctx,"title":title,"file":f"audio/{id}.{format}"})
+        return
+
     #Start playing
     await ctx.send(f"Now playing {title} in {voice_client.channel.name}")
     voice_client.play(
         discord.FFmpegOpusAudio(source = f"audio/{id}.{format}", executable = "ffmpeg"),
         after=lambda e:play_final(f"audio/{id}.{format}",voice_client)
     )
+
+# Skip current audio
+@bot.command(name = 'skip')
+async def skip(ctx:commands.Context):
+    """
+    Skip audio playing in voice channel, author must be in same voice channel
+    """
+    voice_client:discord.VoiceClient = ctx.message.guild.voice_client
+    #Check if connected to any voice channel
+    if voice_client == None:
+        await ctx.send(f"Not connected to voice channel")
+        return
+    # Check if author in same voice channel
+    if ctx.author.voice.channel == ctx.message.guild.voice_client.channel:
+        await ctx.send(f"Skipped current audio in {voice_client.channel.name}")
+        #voice_client.stop()
+        voice_client.source = discord.FFmpegOpusAudio(source = f"audio/silence.m4a", executable = "ffmpeg")
+    else:
+        await ctx.send(f"You must be in same voice channel to use this command")
 
 # Pause audio in voice channel
 @bot.command(name = 'pause')
